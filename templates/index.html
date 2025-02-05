@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Data</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #f0f2f5;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .chart-container {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: 300px;  /* Fixed height for better layout */
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sensor Data</h1>
+    <div id="value">Waiting for data...</div>
+    <div class="grid-container">
+        <div class="chart-container">
+            <canvas id="chart1"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="chart2"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="chart3"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="chart4"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="chart5"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="chart6"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const valueDisplay = document.getElementById('value');
+        
+        // Updated sensor configuration with descriptions
+        const sensors = {
+            'ENSVoc': { 
+                color: 'rgb(75, 192, 192)',
+                label: 'VOC Sensor'
+            },
+            'SGPVRaw': { 
+                color: 'rgb(255, 99, 132)',
+                label: 'SGP VOC and NHx'
+            },
+            'GMSMO': { 
+                color: 'rgb(54, 162, 235)',
+                label: 'Smoke Level'
+            },
+            'STCCO2': { 
+                color: 'rgb(255, 159, 64)',
+                label: 'CO₂ Level'
+            },
+            'MiCO': { 
+                color: 'rgb(153, 102, 255)',
+                label: 'CO Level'
+            },
+            'GMWIN': { 
+                color: 'rgb(75, 192, 192)',
+                label: 'H₂S Level'
+            }
+        };
+
+        // Create charts with better labels
+        const charts = {};
+        let chartIndex = 1;
+        
+        for (const [sensorName, config] of Object.entries(sensors)) {
+            const ctx = document.getElementById(`chart${chartIndex}`);
+            charts[sensorName] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: config.label,
+                        data: [],
+                        borderColor: config.color,
+                        borderWidth: 2,
+                        tension: 0.3  // Slight smoothing
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: false,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+            chartIndex++;
+        }
+
+        socket.on('data_point', (data) => {
+            if (charts[data.key]) {
+                const chart = charts[data.key];
+                const now = new Date().toLocaleTimeString();
+                
+                chart.data.labels.push(now);
+                chart.data.datasets[0].data.push(data.value);
+                
+                if (chart.data.labels.length > 30) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                }
+                
+                chart.update('quiet');
+                valueDisplay.textContent = `Last update: ${now}`;
+            }
+        });
+    </script>
+</body>
+</html>
